@@ -6,7 +6,7 @@ import com.example.shefarmai.data.model.ProductListing
 
 @Entity(tableName = "product_listings")
 data class ProductListingEntity(
-    @get:PrimaryKey(autoGenerate = true)
+    @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val title: String,
     val category: String,

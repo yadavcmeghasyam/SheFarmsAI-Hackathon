@@ -31,7 +31,7 @@ import com.example.shefarmai.ui.screens.marketplace.MarketplaceViewModel
 
 @Composable
 fun AppNavigation() {
-    val context = LocalContext.applicationContext
+    val context = LocalContext.current.applicationContext
     val database = remember { SheFarmDatabase.getDatabase(context) }
 
     val marketplaceRepository = remember { MarketplaceRepositoryImpl(database.productListingDao()) }

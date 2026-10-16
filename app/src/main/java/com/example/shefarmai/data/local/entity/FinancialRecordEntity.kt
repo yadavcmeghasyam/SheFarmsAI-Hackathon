@@ -7,7 +7,7 @@ import com.example.shefarmai.data.model.TransactionType
 
 @Entity(tableName = "financial_records")
 data class FinancialRecordEntity(
-    @get:PrimaryKey(autoGenerate = true)
+    @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val type: String, // "REVENUE" or "EXPENSE"
     val category: String,

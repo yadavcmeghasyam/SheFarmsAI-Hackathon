@@ -32,7 +32,7 @@ abstract class SheFarmDatabase : RoomDatabase() {
                     context.applicationContext,
                     SheFarmDatabase::class.java,
                     "shefarm_database"
-                ).fallbackToDestructiveMigration().build()
+                ).fallbackToDestructiveMigration(true).build()
                 INSTANCE = instance
                 instance
             }
