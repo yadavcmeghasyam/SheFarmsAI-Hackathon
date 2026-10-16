@@ -1,0 +1,121 @@
+package com.example.shefarmai.ui.screens.finance
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.example.shefarmai.data.model.FinancialRecord
+import com.example.shefarmai.data.model.FinancialSummary
+import com.example.shefarmai.data.model.TransactionType
+import com.example.shefarmai.data.repository.FinanceRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+data class FinanceUiState(
+    val records: List<FinancialRecord> = emptyList(),
+    val summary: FinancialSummary = FinancialSummary(),
+    val selectedFilter: String = "ALL", // ALL, REVENUE, EXPENSE
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
+)
+
+class FinanceViewModel(
+    private val repository: FinanceRepository
+) : ViewModel() {
+
+    private val _selectedFilter = MutableStateFlow("ALL")
+    private val _errorMessage = MutableStateFlow<String?>(null)
+
+    init {
+        viewModelScope.launch {
+            repository.seedSampleDataIfEmpty()
+        }
+    }
+
+    val uiState: StateFlow<FinanceUiState> = combine(
+        repository.getAllRecords(),
+        repository.getSummary(),
+        _selectedFilter,
+        _errorMessage
+    ) { records, summary, filter, error ->
+        val filtered = when (filter) {
+            "REVENUE" -> records.filter { it.type == TransactionType.REVENUE }
+            "EXPENSE" -> records.filter { it.type == TransactionType.EXPENSE }
+            else -> records
+        }
+
+        FinanceUiState(
+            records = filtered,
+            summary = summary,
+            selectedFilter = filter,
+            isLoading = false,
+            errorMessage = error
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = FinanceUiState(isLoading = true)
+    )
+
+    fun onFilterSelected(filter: String) {
+        _selectedFilter.value = filter
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
+    fun saveRecord(
+        id: Long = 0,
+        type: TransactionType,
+        category: String,
+        amount: Double?,
+        description: String
+    ): Boolean {
+        if (amount == null || amount <= 0.0) {
+            _errorMessage.value = "Please enter a valid amount greater than 0"
+            return false
+        }
+        if (category.isBlank()) {
+            _errorMessage.value = "Category cannot be empty"
+            return false
+        }
+
+        val record = FinancialRecord(
+            id = id,
+            type = type,
+            category = category.trim(),
+            amount = amount,
+            description = description.trim(),
+            dateInMillis = System.currentTimeMillis()
+        )
+
+        viewModelScope.launch {
+            if (id == 0L) {
+                repository.addRecord(record)
+            } else {
+                repository.updateRecord(record)
+            }
+        }
+        _errorMessage.value = null
+        return true
+    }
+
+    fun deleteRecord(record: FinancialRecord) {
+        viewModelScope.launch {
+            repository.deleteRecord(record)
+        }
+    }
+
+    class Factory(
+        private val repository: FinanceRepository
+    ) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return FinanceViewModel(repository) as T
+        }
+    }
+}
