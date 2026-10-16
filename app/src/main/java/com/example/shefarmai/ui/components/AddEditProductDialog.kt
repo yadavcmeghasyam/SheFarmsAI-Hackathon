@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -20,17 +21,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.shefarmai.data.model.ProductListing
+import com.example.shefarmai.data.model.ProductStatus
 
 @Composable
 fun AddEditProductDialog(
     initialListing: ProductListing?,
     onDismiss: () -> Unit,
+    isSaving: Boolean = false,
     onSave: (
         id: Long,
         title: String,
@@ -40,23 +44,25 @@ fun AddEditProductDialog(
         quantity: Double?,
         location: String,
         contact: String,
-        description: String
+        description: String,
+        status: ProductStatus
     ) -> Boolean
 ) {
-    var title by remember { mutableStateOf(initialListing?.title ?: "") }
-    var category by remember { mutableStateOf(initialListing?.category ?: "Grains") }
-    var priceText by remember { mutableStateOf(initialListing?.pricePerUnit?.toString() ?: "") }
-    var unit by remember { mutableStateOf(initialListing?.unit ?: "50kg bag") }
-    var quantityText by remember { mutableStateOf(initialListing?.availableQuantity?.toString() ?: "") }
-    var location by remember { mutableStateOf(initialListing?.location ?: "") }
-    var contact by remember { mutableStateOf(initialListing?.contactContactInfo ?: "") }
-    var description by remember { mutableStateOf(initialListing?.description ?: "") }
+    var title by rememberSaveable { mutableStateOf(initialListing?.title ?: "") }
+    var category by rememberSaveable { mutableStateOf(initialListing?.category ?: "Grains") }
+    var priceText by rememberSaveable { mutableStateOf(initialListing?.pricePerUnit?.toString() ?: "") }
+    var unit by rememberSaveable { mutableStateOf(initialListing?.unit ?: "50kg bag") }
+    var quantityText by rememberSaveable { mutableStateOf(initialListing?.availableQuantity?.toString() ?: "") }
+    var location by rememberSaveable { mutableStateOf(initialListing?.location ?: "") }
+    var contact by rememberSaveable { mutableStateOf(initialListing?.contactInfo ?: "") }
+    var description by rememberSaveable { mutableStateOf(initialListing?.description ?: "") }
+    var status by rememberSaveable { mutableStateOf(initialListing?.status ?: ProductStatus.AVAILABLE) }
     var localError by remember { mutableStateOf<String?>(null) }
 
     val isEdit = initialListing != null
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isSaving) onDismiss() },
         title = {
             Text(
                 text = if (isEdit) "Edit Marketplace Listing" else "Create Product Listing",
@@ -120,7 +126,7 @@ fun AddEditProductDialog(
                         value = priceText,
                         onValueChange = { priceText = it },
                         label = { Text("Price per Unit (KSh) *") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
@@ -129,7 +135,7 @@ fun AddEditProductDialog(
                         value = quantityText,
                         onValueChange = { quantityText = it },
                         label = { Text("Quantity *") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
@@ -153,6 +159,14 @@ fun AddEditProductDialog(
                     singleLine = true
                 )
 
+                Text("Availability")
+                ProductStatus.entries.forEach { option ->
+                    FilterChip(
+                        selected = status == option,
+                        onClick = { status = option },
+                        label = { Text(option.displayName) }
+                    )
+                }
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
@@ -165,6 +179,7 @@ fun AddEditProductDialog(
         },
         confirmButton = {
             Button(
+                enabled = !isSaving,
                 onClick = {
                     val price = priceText.toDoubleOrNull()
                     val quantity = quantityText.toDoubleOrNull()
@@ -177,7 +192,8 @@ fun AddEditProductDialog(
                         quantity,
                         location,
                         contact,
-                        description
+                        description,
+                        status
                     )
                     if (!success) {
                         localError = "Please check all required fields and enter positive numbers for price and quantity."
@@ -188,7 +204,7 @@ fun AddEditProductDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, enabled = !isSaving) {
                 Text("Cancel")
             }
         }

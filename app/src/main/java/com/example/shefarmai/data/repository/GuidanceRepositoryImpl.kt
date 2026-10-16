@@ -23,14 +23,14 @@ class GuidanceRepositoryImpl : GuidanceRepository {
                 
                 Integrated Management Protocol:
                 - Frequent Scouting: Inspect 20 consecutive plants in 5 different spots twice weekly.
-                - Neem & Ash Spray: Mix 50g neem seed powder or wood ash in 1 Liter water with liquid soap as an organic deterrent.
+                - Treatment Selection: Confirm identification with a local agricultural extension officer; use locally approved products and follow their labels.
                 - Pheromone Traps: Install 4 traps per hectare to monitor adult moth populations.
                 - Push-Pull System: Intercrop maize with Desmodium to repel moths, and plant Napier grass along field borders to trap pests.
             """.trimIndent(),
             actionableTips = listOf(
                 "Scout fields twice a week starting 7 days after germination.",
                 "Crush egg masses manually when found during early growth stages.",
-                "Apply neem extracts into leaf whorls early morning or late afternoon."
+                "Choose treatment with your local extension officer and follow product labels."
             ),
             suitableCrops = listOf("Maize", "Sorghum", "Sweetcorn")
         ),
@@ -170,13 +170,14 @@ class GuidanceRepositoryImpl : GuidanceRepository {
     }
 
     override fun searchGuides(query: String, category: String?): Flow<List<FarmingGuide>> {
+        val normalizedQuery = query.trim()
         return guidesFlow.map { list ->
             list.filter { guide ->
                 val matchesCategory = category.isNullOrBlank() || category == "All" || guide.category.equals(category, ignoreCase = true)
-                val matchesQuery = query.isBlank() || guide.title.contains(query, ignoreCase = true) ||
-                        guide.summary.contains(query, ignoreCase = true) ||
-                        guide.detailContent.contains(query, ignoreCase = true) ||
-                        guide.suitableCrops.any { it.contains(query, ignoreCase = true) }
+                val matchesQuery = normalizedQuery.isBlank() || guide.title.contains(normalizedQuery, ignoreCase = true) ||
+                        guide.summary.contains(normalizedQuery, ignoreCase = true) ||
+                        guide.detailContent.contains(normalizedQuery, ignoreCase = true) ||
+                        guide.suitableCrops.any { it.contains(normalizedQuery, ignoreCase = true) }
                 matchesCategory && matchesQuery
             }
         }

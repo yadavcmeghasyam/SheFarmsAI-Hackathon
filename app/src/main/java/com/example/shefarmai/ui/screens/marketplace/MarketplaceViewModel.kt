@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.shefarmai.data.model.ProductListing
+import com.example.shefarmai.data.model.ProductStatus
 import com.example.shefarmai.data.repository.MarketplaceRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -11,12 +12,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 data class MarketplaceUiState(
     val listings: List<ProductListing> = emptyList(),
     val searchQuery: String = "",
     val selectedCategory: String = "All",
     val isLoading: Boolean = false,
+    val isSaving: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -26,26 +29,24 @@ class MarketplaceViewModel(
 
     private val _searchQuery = MutableStateFlow("")
     private val _selectedCategory = MutableStateFlow("All")
+    private val _isSaving = MutableStateFlow(false)
     private val _errorMessage = MutableStateFlow<String?>(null)
 
-    init {
-        viewModelScope.launch {
-            repository.seedSampleDataIfEmpty()
-        }
-    }
 
     val uiState: StateFlow<MarketplaceUiState> = combine(
         repository.getAllListings(),
         _searchQuery,
         _selectedCategory,
-        _errorMessage
-    ) { listings, query, category, error ->
+        _errorMessage,
+        _isSaving
+    ) { listings, query, category, error, saving ->
+        val normalizedQuery = query.trim()
         val filtered = listings.filter { listing ->
             val matchesCategory = category == "All" || listing.category.equals(category, ignoreCase = true)
-            val matchesQuery = query.isBlank() ||
-                    listing.title.contains(query, ignoreCase = true) ||
-                    listing.location.contains(query, ignoreCase = true) ||
-                    listing.description.contains(query, ignoreCase = true)
+            val matchesQuery = normalizedQuery.isBlank() ||
+                    listing.title.contains(normalizedQuery, ignoreCase = true) ||
+                    listing.location.contains(normalizedQuery, ignoreCase = true) ||
+                    listing.description.contains(normalizedQuery, ignoreCase = true)
             matchesCategory && matchesQuery
         }
 
@@ -54,6 +55,7 @@ class MarketplaceViewModel(
             searchQuery = query,
             selectedCategory = category,
             isLoading = false,
+            isSaving = saving,
             errorMessage = error
         )
     }.stateIn(
@@ -83,17 +85,20 @@ class MarketplaceViewModel(
         quantity: Double?,
         location: String,
         contact: String,
-        description: String
+        description: String,
+        status: ProductStatus? = null,
+        onSaved: () -> Unit = {}
     ): Boolean {
+        if (_isSaving.value) return false
         if (title.isBlank()) {
             _errorMessage.value = "Product title cannot be empty"
             return false
         }
-        if (pricePerUnit == null || pricePerUnit <= 0.0) {
+        if (pricePerUnit == null || !pricePerUnit.isFinite() || pricePerUnit <= 0.0) {
             _errorMessage.value = "Please enter a valid price per unit"
             return false
         }
-        if (quantity == null || quantity <= 0.0) {
+        if (quantity == null || !quantity.isFinite() || quantity <= 0.0) {
             _errorMessage.value = "Please enter a valid quantity"
             return false
         }
@@ -114,25 +119,42 @@ class MarketplaceViewModel(
             unit = if (unit.isBlank()) "unit" else unit.trim(),
             availableQuantity = quantity,
             location = location.trim(),
-            contactContactInfo = contact.trim(),
+            contactInfo = contact.trim(),
             description = description.trim(),
-            status = "AVAILABLE"
+            status = status ?: ProductStatus.AVAILABLE
         )
 
+        _isSaving.value = true
+        _errorMessage.value = null
         viewModelScope.launch {
-            if (id == 0L) {
-                repository.addListing(listing)
-            } else {
-                repository.updateListing(listing)
+            try {
+                if (id == 0L) {
+                    repository.addListing(listing)
+                } else {
+                    val original = repository.getListingById(id) ?: error("Listing no longer exists")
+                    repository.updateListing(listing.copy(datePostedInMillis = original.datePostedInMillis, status = status ?: original.status))
+                }
+                onSaved()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = "Could not save changes. Please try again."
+            } finally {
+                _isSaving.value = false
             }
         }
-        _errorMessage.value = null
         return true
     }
 
     fun deleteListing(listing: ProductListing) {
         viewModelScope.launch {
-            repository.deleteListing(listing)
+            try {
+                repository.deleteListing(listing)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = "Could not save changes. Please try again."
+            }
         }
     }
 

@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface AssistantRepository {
     val messages: StateFlow<List<AssistantMessage>>
+    suspend fun loadHistory() {}
     suspend fun sendMessage(userText: String)
     suspend fun clearHistory()
 }

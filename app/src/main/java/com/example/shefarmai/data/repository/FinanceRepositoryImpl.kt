@@ -5,12 +5,16 @@ import com.example.shefarmai.data.local.entity.FinancialRecordEntity
 import com.example.shefarmai.data.model.FinancialRecord
 import com.example.shefarmai.data.model.FinancialSummary
 import com.example.shefarmai.data.model.TransactionType
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class FinanceRepositoryImpl(
     private val dao: FinancialRecordDao
 ) : FinanceRepository {
+
+    private val seedMutex = Mutex()
 
     override fun getAllRecords(): Flow<List<FinancialRecord>> {
         return dao.getAllRecords().map { entities ->
@@ -44,7 +48,7 @@ class FinanceRepositoryImpl(
         dao.deleteRecordById(id)
     }
 
-    override suspend fun seedSampleDataIfEmpty() {
+    override suspend fun seedSampleDataIfEmpty() = seedMutex.withLock {
         if (dao.getCount() == 0) {
             val now = System.currentTimeMillis()
             val dayInMillis = 86_400_000L
@@ -101,7 +105,7 @@ class FinanceRepositoryImpl(
                 )
             )
 
-            samples.forEach { addRecord(it) }
+            samples.forEach { addRecord(it.copy(description = "[DEMO] " + it.description)) }
         }
     }
 

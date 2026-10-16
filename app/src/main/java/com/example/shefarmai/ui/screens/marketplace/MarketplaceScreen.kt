@@ -1,6 +1,8 @@
 package com.example.shefarmai.ui.screens.marketplace
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,6 +63,7 @@ fun MarketplaceScreen(
     val categories = listOf("All", "Grains", "Vegetables", "Tubers", "Dairy", "Oilseeds")
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
@@ -98,7 +101,7 @@ fun MarketplaceScreen(
                         modifier = Modifier.padding(end = 8.dp)
                     )
                     Text(
-                        text = "Demo Marketplace - Manage on-farm harvest produce listings. Regional buyer matching simulated for local testing.",
+                        text = "Local marketplace notebook. Listings are saved on this device; buyer matching and online sales are not connected.",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -157,6 +160,7 @@ fun MarketplaceScreen(
                 }
             } else {
                 LazyColumn(
+                    contentPadding = PaddingValues(bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
@@ -178,9 +182,10 @@ fun MarketplaceScreen(
 
         if (showDialog) {
             AddEditProductDialog(
+                isSaving = uiState.isSaving,
                 initialListing = editingListing,
                 onDismiss = { showDialog = false },
-                onSave = { id, title, category, price, unit, quantity, location, contact, description ->
+                onSave = { id, title, category, price, unit, quantity, location, contact, description, status ->
                     val success = viewModel.saveListing(
                         id = id,
                         title = title,
@@ -190,11 +195,10 @@ fun MarketplaceScreen(
                         quantity = quantity,
                         location = location,
                         contact = contact,
-                        description = description
+                        description = description,
+                        status = status,
+                        onSaved = { showDialog = false }
                     )
-                    if (success) {
-                        showDialog = false
-                    }
                     success
                 }
             )

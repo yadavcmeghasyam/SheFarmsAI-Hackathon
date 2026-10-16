@@ -3,11 +3,16 @@ package com.example.shefarmai
 import com.example.shefarmai.data.model.FinancialRecord
 import com.example.shefarmai.data.model.FinancialSummary
 import com.example.shefarmai.data.model.ProductListing
+import com.example.shefarmai.data.model.ProductStatus
 import com.example.shefarmai.data.model.TransactionType
 import com.example.shefarmai.data.repository.FinanceRepository
 import com.example.shefarmai.data.repository.FinanceRepositoryImpl
 import com.example.shefarmai.data.repository.MarketplaceRepository
 import com.example.shefarmai.ui.screens.dashboard.DashboardViewModel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -46,11 +51,13 @@ class DashboardViewModelTest {
 
     @Test
     fun uiState_aggregatesActiveListingsAndRecentRecords() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+        runCurrent()
         mockMarketplaceRepository.addListing(
-            ProductListing(id = 1, title = "Maize", category = "Grains", pricePerUnit = 2800.0, unit = "bag", availableQuantity = 10.0, location = "Eldoret", contactContactInfo = "0712", description = "", status = "AVAILABLE")
+            ProductListing(id = 1, title = "Maize", category = "Grains", pricePerUnit = 2800.0, unit = "bag", availableQuantity = 10.0, location = "Eldoret", contactInfo = "0712", description = "", status = ProductStatus.AVAILABLE)
         )
         mockMarketplaceRepository.addListing(
-            ProductListing(id = 2, title = "Tomatoes", category = "Vegetables", pricePerUnit = 90.0, unit = "kg", availableQuantity = 50.0, location = "Nakuru", contactContactInfo = "0723", description = "", status = "SOLD")
+            ProductListing(id = 2, title = "Tomatoes", category = "Vegetables", pricePerUnit = 90.0, unit = "kg", availableQuantity = 50.0, location = "Nakuru", contactInfo = "0723", description = "", status = ProductStatus.SOLD)
         )
 
         mockFinanceRepository.addRecord(

@@ -1,5 +1,9 @@
 package com.example.shefarmai.ui.screens.finance
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,6 +58,7 @@ fun FinanceScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
@@ -80,7 +85,7 @@ fun FinanceScreen(
 
             // Filter Chips
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
@@ -123,6 +128,7 @@ fun FinanceScreen(
                 }
             } else {
                 LazyColumn(
+                    contentPadding = PaddingValues(bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
@@ -144,6 +150,7 @@ fun FinanceScreen(
 
         if (showDialog) {
             AddEditRecordDialog(
+                isSaving = uiState.isSaving,
                 initialRecord = editingRecord,
                 onDismiss = { showDialog = false },
                 onSave = { id, type, category, amount, description ->
@@ -152,11 +159,9 @@ fun FinanceScreen(
                         type = type,
                         category = category,
                         amount = amount,
-                        description = description
+                        description = description,
+                        onSaved = { showDialog = false }
                     )
-                    if (success) {
-                        showDialog = false
-                    }
                     success
                 }
             )

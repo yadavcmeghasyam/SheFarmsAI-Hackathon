@@ -13,12 +13,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 data class FinanceUiState(
     val records: List<FinancialRecord> = emptyList(),
     val summary: FinancialSummary = FinancialSummary(),
     val selectedFilter: String = "ALL", // ALL, REVENUE, EXPENSE
     val isLoading: Boolean = false,
+    val isSaving: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -27,20 +29,17 @@ class FinanceViewModel(
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow("ALL")
+    private val _isSaving = MutableStateFlow(false)
     private val _errorMessage = MutableStateFlow<String?>(null)
 
-    init {
-        viewModelScope.launch {
-            repository.seedSampleDataIfEmpty()
-        }
-    }
 
     val uiState: StateFlow<FinanceUiState> = combine(
         repository.getAllRecords(),
         repository.getSummary(),
         _selectedFilter,
-        _errorMessage
-    ) { records, summary, filter, error ->
+        _errorMessage,
+        _isSaving
+    ) { records, summary, filter, error, saving ->
         val filtered = when (filter) {
             "REVENUE" -> records.filter { it.type == TransactionType.REVENUE }
             "EXPENSE" -> records.filter { it.type == TransactionType.EXPENSE }
@@ -52,6 +51,7 @@ class FinanceViewModel(
             summary = summary,
             selectedFilter = filter,
             isLoading = false,
+            isSaving = saving,
             errorMessage = error
         )
     }.stateIn(
@@ -73,9 +73,11 @@ class FinanceViewModel(
         type: TransactionType,
         category: String,
         amount: Double?,
-        description: String
+        description: String,
+        onSaved: () -> Unit = {}
     ): Boolean {
-        if (amount == null || amount <= 0.0) {
+        if (_isSaving.value) return false
+        if (amount == null || !amount.isFinite() || amount <= 0.0) {
             _errorMessage.value = "Please enter a valid amount greater than 0"
             return false
         }
@@ -93,20 +95,37 @@ class FinanceViewModel(
             dateInMillis = System.currentTimeMillis()
         )
 
+        _isSaving.value = true
+        _errorMessage.value = null
         viewModelScope.launch {
-            if (id == 0L) {
-                repository.addRecord(record)
-            } else {
-                repository.updateRecord(record)
+            try {
+                if (id == 0L) {
+                    repository.addRecord(record)
+                } else {
+                    val original = repository.getRecordById(id) ?: error("Transaction no longer exists")
+                    repository.updateRecord(record.copy(dateInMillis = original.dateInMillis))
+                }
+                onSaved()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = "Could not save changes. Please try again."
+            } finally {
+                _isSaving.value = false
             }
         }
-        _errorMessage.value = null
         return true
     }
 
     fun deleteRecord(record: FinancialRecord) {
         viewModelScope.launch {
-            repository.deleteRecord(record)
+            try {
+                repository.deleteRecord(record)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = "Could not save changes. Please try again."
+            }
         }
     }
 

@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
+import com.example.shefarmai.ui.icons.automirrored.filled.TrendingDown
+import com.example.shefarmai.ui.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -46,7 +46,7 @@ fun FinancialSummaryCard(
                 .padding(16.dp)
         ) {
             Text(
-                text = "Seasonal Financial Overview",
+                text = "Farm Financial Overview",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 fontWeight = FontWeight.Bold
@@ -59,7 +59,7 @@ fun FinancialSummaryCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Net Profit / Loss",
                         style = MaterialTheme.typography.bodySmall,
@@ -78,12 +78,14 @@ fun FinancialSummaryCard(
                     modifier = Modifier.padding(start = 8.dp)
                 ) {
                     Icon(
-                        imageVector = if (summary.isProfitable) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+                        imageVector = if (summary.isProfitable) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                         contentDescription = null,
                         tint = if (summary.isProfitable) Color(0xFF2E7D32) else Color(0xFFC62828)
                     )
                     Text(
-                        text = String.format(Locale.getDefault(), "%.1f%%", summary.profitMarginPercentage),
+                        text = if (summary.totalRevenue > 0.0)
+                            String.format(Locale.getDefault(), "%.1f%%", summary.profitMarginPercentage)
+                        else "N/A",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = if (summary.isProfitable) Color(0xFF2E7D32) else Color(0xFFC62828),

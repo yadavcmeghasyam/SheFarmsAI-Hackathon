@@ -13,7 +13,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.shefarmai.data.local.SheFarmDatabase
+import com.example.shefarmai.data.local.LocalChatHistoryStore
+import com.example.shefarmai.data.local.RoomChatHistoryStore
+import androidx.compose.foundation.layout.imePadding
 import com.example.shefarmai.data.repository.AssistantRepositoryImpl
+import com.example.shefarmai.data.repository.AssistantRepository
 import com.example.shefarmai.data.repository.FinanceRepositoryImpl
 import com.example.shefarmai.data.repository.GuidanceRepositoryImpl
 import com.example.shefarmai.data.repository.MarketplaceRepositoryImpl
@@ -30,13 +34,23 @@ import com.example.shefarmai.ui.screens.marketplace.MarketplaceScreen
 import com.example.shefarmai.ui.screens.marketplace.MarketplaceViewModel
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    databaseOverride: SheFarmDatabase? = null,
+    assistantRepositoryOverride: AssistantRepository? = null
+) {
     val context = LocalContext.current.applicationContext
-    val database = remember { SheFarmDatabase.getDatabase(context) }
+    val database = remember(databaseOverride) { databaseOverride ?: SheFarmDatabase.getDatabase(context) }
 
     val marketplaceRepository = remember { MarketplaceRepositoryImpl(database.productListingDao()) }
     val financeRepository = remember { FinanceRepositoryImpl(database.financialRecordDao()) }
-    val assistantRepository = remember { AssistantRepositoryImpl() }
+    val assistantRepository = remember(assistantRepositoryOverride) {
+        assistantRepositoryOverride ?: AssistantRepositoryImpl(
+            RoomChatHistoryStore(
+                chatMessageDao = database.chatMessageDao(),
+                legacyStore = LocalChatHistoryStore(context)
+            )
+        )
+    }
     val guidanceRepository = remember { GuidanceRepositoryImpl() }
 
     val navController = rememberNavController()
@@ -44,6 +58,7 @@ fun AppNavigation() {
     val currentRoute = navBackStackEntry?.destination?.route
 
     Scaffold(
+        modifier = Modifier.imePadding(),
         bottomBar = {
             SheFarmBottomBar(
                 currentRoute = currentRoute,

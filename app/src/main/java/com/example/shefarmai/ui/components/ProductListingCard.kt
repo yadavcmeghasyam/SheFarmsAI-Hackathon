@@ -78,10 +78,13 @@ fun ProductListingCard(
             )
 
             Text(
-                text = String.format(Locale.getDefault(), "Available Quantity: %.1f %s", listing.availableQuantity, listing.unit),
+                text = String.format(Locale.getDefault(), "Quantity: %.1f %s", listing.availableQuantity, listing.unit),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            Text("Status: ${listing.status.displayName}",
+                style = MaterialTheme.typography.labelMedium)
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -123,7 +126,7 @@ fun ProductListingCard(
                         modifier = Modifier.padding(end = 4.dp)
                     )
                     Text(
-                        text = listing.contactContactInfo,
+                        text = listing.contactInfo,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary

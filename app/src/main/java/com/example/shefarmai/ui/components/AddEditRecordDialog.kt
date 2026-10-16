@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +34,7 @@ import com.example.shefarmai.data.model.TransactionType
 fun AddEditRecordDialog(
     initialRecord: FinancialRecord?,
     onDismiss: () -> Unit,
+    isSaving: Boolean = false,
     onSave: (
         id: Long,
         type: TransactionType,
@@ -41,16 +43,16 @@ fun AddEditRecordDialog(
         description: String
     ) -> Boolean
 ) {
-    var type by remember { mutableStateOf(initialRecord?.type ?: TransactionType.EXPENSE) }
-    var category by remember { mutableStateOf(initialRecord?.category ?: "") }
-    var amountText by remember { mutableStateOf(initialRecord?.amount?.toString() ?: "") }
-    var description by remember { mutableStateOf(initialRecord?.description ?: "") }
+    var type by rememberSaveable { mutableStateOf(initialRecord?.type ?: TransactionType.EXPENSE) }
+    var category by rememberSaveable { mutableStateOf(initialRecord?.category ?: "") }
+    var amountText by rememberSaveable { mutableStateOf(initialRecord?.amount?.toString() ?: "") }
+    var description by rememberSaveable { mutableStateOf(initialRecord?.description ?: "") }
     var localError by remember { mutableStateOf<String?>(null) }
 
     val isEdit = initialRecord != null
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isSaving) onDismiss() },
         title = {
             Text(
                 text = if (isEdit) "Edit Financial Record" else "Record Farm Transaction",
@@ -113,7 +115,7 @@ fun AddEditRecordDialog(
                     value = amountText,
                     onValueChange = { amountText = it },
                     label = { Text("Amount (KSh) *") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -130,6 +132,7 @@ fun AddEditRecordDialog(
         },
         confirmButton = {
             Button(
+                enabled = !isSaving,
                 onClick = {
                     val amount = amountText.toDoubleOrNull()
                     val success = onSave(
@@ -148,7 +151,7 @@ fun AddEditRecordDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, enabled = !isSaving) {
                 Text("Cancel")
             }
         }

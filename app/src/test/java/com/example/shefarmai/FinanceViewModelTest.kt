@@ -1,106 +1,66 @@
 package com.example.shefarmai
 
-import com.example.shefarmai.data.model.FinancialRecord
-import com.example.shefarmai.data.model.FinancialSummary
-import com.example.shefarmai.data.model.TransactionType
-import com.example.shefarmai.data.repository.FinanceRepository
-import com.example.shefarmai.data.repository.FinanceRepositoryImpl
+import com.example.shefarmai.data.model.*
 import com.example.shefarmai.ui.screens.finance.FinanceViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
-import org.junit.After
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Before
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.*
+import org.junit.Assert.*
+import org.junit.Rule
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FinanceViewModelTest {
+    @get:Rule val main = MainDispatcherRule()
 
-    private val testDispatcher = StandardTestDispatcher()
-    private lateinit var mockRepository: FakeFinanceRepository
-    private lateinit var viewModel: FinanceViewModel
-
-    @Before
-    fun setUp() {
-        Dispatchers.setMain(testDispatcher)
-        mockRepository = FakeFinanceRepository()
-        viewModel = FinanceViewModel(mockRepository)
+    @Test fun createEditFilterDeleteAndPreserveDate() = runTest {
+        val repo = FakeFinanceRepository()
+        val vm = FinanceViewModel(repo)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect() }
+        assertTrue(vm.saveRecord(type = TransactionType.REVENUE, category = " Sales ", amount = 500.0, description = "Maize"))
+        runCurrent()
+        val original = repo.records.value.single()
+        assertEquals("Sales", original.category)
+        assertEquals(500.0, vm.uiState.value.summary.netProfitLoss, 0.001)
+        vm.saveRecord(original.id, TransactionType.REVENUE, "Sales", 600.0, "Edited")
+        runCurrent()
+        assertEquals(original.dateInMillis, repo.records.value.single().dateInMillis)
+        assertEquals(600.0, vm.uiState.value.summary.netProfitLoss, 0.001)
+        vm.onFilterSelected("EXPENSE")
+        runCurrent()
+        assertTrue(vm.uiState.value.records.isEmpty())
+        vm.deleteRecord(original)
+        runCurrent()
+        assertEquals(0, vm.uiState.value.summary.transactionCount)
+        assertEquals(0, repo.seedCalls)
     }
 
-    @After
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    @Test
-    fun saveRecord_withValidExpense_returnsTrue() {
-        val success = viewModel.saveRecord(
-            id = 0,
-            type = TransactionType.EXPENSE,
-            category = "Fertilizer",
-            amount = 5000.0,
-            description = "DAP Purchase"
-        )
-
-        assertTrue(success)
-    }
-
-    @Test
-    fun saveRecord_withZeroOrNullAmount_returnsFalse() {
-        val successZero = viewModel.saveRecord(
-            id = 0,
-            type = TransactionType.EXPENSE,
-            category = "Fertilizer",
-            amount = 0.0,
-            description = "DAP Purchase"
-        )
-        assertFalse(successZero)
-
-        val successNull = viewModel.saveRecord(
-            id = 0,
-            type = TransactionType.EXPENSE,
-            category = "Fertilizer",
-            amount = null,
-            description = "DAP Purchase"
-        )
-        assertFalse(successNull)
-    }
-
-    private class FakeFinanceRepository : FinanceRepository {
-        private val records = MutableStateFlow<List<FinancialRecord>>(emptyList())
-
-        override fun getAllRecords(): Flow<List<FinancialRecord>> = records
-
-        override fun getSummary(): Flow<FinancialSummary> {
-            return records.map { FinanceRepositoryImpl.calculateSummary(it) }
+    @Test fun rejectsNonFiniteAndNonPositiveAmounts() = runTest {
+        val repo = FakeFinanceRepository()
+        val vm = FinanceViewModel(repo)
+        for (amount in listOf(null, 0.0, -1.0, Double.NaN, Double.POSITIVE_INFINITY)) {
+            assertFalse(vm.saveRecord(type = TransactionType.EXPENSE, category = "Seeds", amount = amount, description = ""))
         }
+        runCurrent()
+        assertTrue(repo.records.value.isEmpty())
+    }
 
-        override suspend fun getRecordById(id: Long): FinancialRecord? = records.value.find { it.id == id }
-
-        override suspend fun addRecord(record: FinancialRecord): Long {
-            val newList = records.value.toMutableList()
-            newList.add(record)
-            records.value = newList
-            return record.id
-        }
-
-        override suspend fun updateRecord(record: FinancialRecord) {}
-
-        override suspend fun deleteRecord(record: FinancialRecord) {
-            val newList = records.value.toMutableList()
-            newList.removeIf { it.id == record.id }
-            records.value = newList
-        }
-
-        override suspend fun deleteRecordById(id: Long) {}
-
-        override suspend fun seedSampleDataIfEmpty() {}
+    @Test fun failedWriteKeepsDialogOpenAndAllowsRetry() = runTest {
+        val repo = FakeFinanceRepository().apply { failWrites = true }
+        val vm = FinanceViewModel(repo)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect() }
+        var closed = false
+        vm.saveRecord(type = TransactionType.EXPENSE, category = "Seeds", amount = 50.0, description = "", onSaved = { closed = true })
+        assertFalse(vm.saveRecord(type = TransactionType.EXPENSE, category = "Seeds", amount = 50.0, description = ""))
+        runCurrent()
+        assertFalse(closed)
+        assertFalse(vm.uiState.value.isSaving)
+        assertNotNull(vm.uiState.value.errorMessage)
+        repo.failWrites = false
+        vm.saveRecord(type = TransactionType.EXPENSE, category = "Seeds", amount = 50.0, description = "", onSaved = { closed = true })
+        runCurrent()
+        assertTrue(closed)
+        assertNull(vm.uiState.value.errorMessage)
     }
 }

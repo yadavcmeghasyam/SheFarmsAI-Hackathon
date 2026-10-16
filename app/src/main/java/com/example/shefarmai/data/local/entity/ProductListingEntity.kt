@@ -3,6 +3,7 @@ package com.example.shefarmai.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.shefarmai.data.model.ProductListing
+import com.example.shefarmai.data.model.ProductStatus
 
 @Entity(tableName = "product_listings")
 data class ProductListingEntity(
@@ -28,10 +29,10 @@ data class ProductListingEntity(
             unit = unit,
             availableQuantity = availableQuantity,
             location = location,
-            contactContactInfo = contactInfo,
+            contactInfo = contactInfo,
             description = description,
             datePostedInMillis = datePostedInMillis,
-            status = status
+            status = ProductStatus.fromString(status)
         )
     }
 
@@ -45,10 +46,10 @@ data class ProductListingEntity(
                 unit = listing.unit,
                 availableQuantity = listing.availableQuantity,
                 location = listing.location,
-                contactInfo = listing.contactContactInfo,
+                contactInfo = listing.contactInfo,
                 description = listing.description,
                 datePostedInMillis = listing.datePostedInMillis,
-                status = listing.status
+                status = listing.status.name
             )
         }
     }

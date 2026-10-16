@@ -11,11 +11,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 data class AssistantUiState(
     val messages: List<AssistantMessage> = emptyList(),
     val inputText: String = "",
-    val isGenerating: Boolean = false
+    val isGenerating: Boolean = false,
+    val errorMessage: String? = null
 )
 
 class AssistantViewModel(
@@ -24,16 +26,31 @@ class AssistantViewModel(
 
     private val _inputText = MutableStateFlow("")
     private val _isGenerating = MutableStateFlow(false)
+    private val _errorMessage = MutableStateFlow<String?>(null)
+
+    init {
+        viewModelScope.launch {
+            try {
+                repository.loadHistory()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = "Could not load saved chat. Try again or clear chat to reset it."
+            }
+        }
+    }
 
     val uiState: StateFlow<AssistantUiState> = combine(
         repository.messages,
         _inputText,
-        _isGenerating
-    ) { messages, text, generating ->
+        _isGenerating,
+        _errorMessage
+    ) { messages, text, generating, error ->
         AssistantUiState(
             messages = messages,
             inputText = text,
-            isGenerating = generating
+            isGenerating = generating,
+            errorMessage = error
         )
     }.stateIn(
         scope = viewModelScope,
@@ -47,20 +64,41 @@ class AssistantViewModel(
 
     fun sendMessage(textOverride: String? = null) {
         val queryToSend = textOverride ?: _inputText.value
-        if (queryToSend.isBlank()) return
+        if (queryToSend.isBlank() || _isGenerating.value) return
 
         _inputText.value = ""
         _isGenerating.value = true
+        _errorMessage.value = null
 
         viewModelScope.launch {
-            repository.sendMessage(queryToSend)
-            _isGenerating.value = false
+            try {
+                repository.sendMessage(queryToSend)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _inputText.value = queryToSend
+                _errorMessage.value = "Could not save your message. Please try again."
+            } finally {
+                _isGenerating.value = false
+            }
         }
     }
 
     fun clearChat() {
+        if (_isGenerating.value) return
+        _isGenerating.value = true
         viewModelScope.launch {
-            repository.clearHistory()
+            try {
+                repository.clearHistory()
+                _inputText.value = ""
+                _errorMessage.value = null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = "Could not clear chat. Please try again."
+            } finally {
+                _isGenerating.value = false
+            }
         }
     }
 

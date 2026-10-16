@@ -2,6 +2,10 @@ package com.example.shefarmai
 
 import com.example.shefarmai.data.repository.AssistantRepositoryImpl
 import com.example.shefarmai.ui.screens.assistant.AssistantViewModel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -37,6 +41,8 @@ class AssistantViewModelTest {
 
     @Test
     fun sendMessage_addsUserAndAssistantResponse() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+        runCurrent()
         viewModel.onInputTextChanged("How to treat fall armyworm?")
         viewModel.sendMessage()
         advanceUntilIdle()
@@ -51,6 +57,8 @@ class AssistantViewModelTest {
 
     @Test
     fun clearChat_resetsMessagesToWelcome() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+        runCurrent()
         viewModel.sendMessage("Test query")
         advanceUntilIdle()
 

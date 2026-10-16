@@ -12,16 +12,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Send
+import com.example.shefarmai.ui.icons.filled.DeleteSweep
+import com.example.shefarmai.ui.icons.filled.Psychology
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,13 +45,11 @@ fun AssistantScreen(
         }
     }
 
-    Scaffold { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
             // Header Card
             Card(
                 colors = CardDefaults.cardColors(
@@ -84,14 +81,14 @@ fun AssistantScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "On-Device Agricultural Expert Engine",
+                                text = "Offline topic library - no live AI model",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                             )
                         }
                     }
 
-                    IconButton(onClick = { viewModel.clearChat() }) {
+                    IconButton(onClick = { viewModel.clearChat() }, enabled = !uiState.isGenerating) {
                         Icon(
                             imageVector = Icons.Default.DeleteSweep,
                             contentDescription = "Clear Chat",
@@ -102,6 +99,10 @@ fun AssistantScreen(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+
+            uiState.errorMessage?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
 
             // Chat Messages List
             LazyColumn(
@@ -142,7 +143,7 @@ fun AssistantScreen(
                     enabled = uiState.inputText.isNotBlank() && !uiState.isGenerating
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Send,
+                        imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Send Message",
                         tint = if (uiState.inputText.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     )
@@ -150,4 +151,3 @@ fun AssistantScreen(
             }
         }
     }
-}

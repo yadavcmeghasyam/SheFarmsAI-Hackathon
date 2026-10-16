@@ -14,17 +14,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalanceWallet
+import com.example.shefarmai.ui.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Storefront
+import com.example.shefarmai.ui.icons.filled.Psychology
+import com.example.shefarmai.ui.icons.filled.Storefront
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -46,15 +45,13 @@ fun DashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Scaffold { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
             // Header Banner
             Box(
                 modifier = Modifier
@@ -72,10 +69,19 @@ fun DashboardScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Empowering Women in Agriculture with On-Device AI & Smart Farm Financial Management",
+                        text = "Manage your produce, track farm finances and explore offline farming guidance.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
                     )
+                }
+            }
+
+            Text("Offline farm workspace. Listings and finances stay on this device.",
+                style = MaterialTheme.typography.bodySmall)
+            uiState.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            if (!uiState.isLoading && uiState.recentListings.isEmpty() && uiState.recentTransactions.isEmpty()) {
+                OutlinedButton(onClick = viewModel::loadSampleData) {
+                    Text("Load sample farm (demo records)")
                 }
             }
 
@@ -99,7 +105,7 @@ fun DashboardScreen(
                 ) {
                     Icon(imageVector = Icons.Default.Add, contentDescription = null)
                     Spacer(modifier = Modifier.padding(horizontal = 2.dp))
-                    Text("New Listing")
+                    Text("Marketplace")
                 }
 
                 Button(
@@ -108,7 +114,7 @@ fun DashboardScreen(
                 ) {
                     Icon(imageVector = Icons.Default.AccountBalanceWallet, contentDescription = null)
                     Spacer(modifier = Modifier.padding(horizontal = 2.dp))
-                    Text("Record P&L")
+                    Text("Finances")
                 }
             }
 
@@ -122,7 +128,7 @@ fun DashboardScreen(
                 ) {
                     Icon(imageVector = Icons.Default.Psychology, contentDescription = null)
                     Spacer(modifier = Modifier.padding(horizontal = 2.dp))
-                    Text("Ask AI Assistant")
+                    Text("Assistant")
                 }
 
                 OutlinedButton(
@@ -164,7 +170,7 @@ fun DashboardScreen(
                     ProductListingCard(
                         listing = listing,
                         onEditClick = { onNavigate(NavRoute.Marketplace) },
-                        onDeleteClick = { onNavigate(NavRoute.Marketplace) }
+                        onDeleteClick = { viewModel.deleteListing(listing) }
                     )
                 }
             }
@@ -198,10 +204,9 @@ fun DashboardScreen(
                     FinancialRecordItem(
                         record = record,
                         onEditClick = { onNavigate(NavRoute.Finance) },
-                        onDeleteClick = { onNavigate(NavRoute.Finance) }
+                        onDeleteClick = { viewModel.deleteRecord(record) }
                     )
                 }
             }
         }
     }
-}

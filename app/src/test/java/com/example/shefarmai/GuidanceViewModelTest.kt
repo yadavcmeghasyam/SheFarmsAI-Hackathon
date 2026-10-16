@@ -3,6 +3,11 @@ package com.example.shefarmai
 import com.example.shefarmai.data.model.FarmingGuide
 import com.example.shefarmai.data.repository.GuidanceRepository
 import com.example.shefarmai.ui.screens.guidance.GuidanceViewModel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -37,7 +42,9 @@ class GuidanceViewModelTest {
     }
 
     @Test
-    fun selectGuide_updatesSelectedGuideState() {
+    fun selectGuide_updatesSelectedGuideState() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+        runCurrent()
         assertNull(viewModel.uiState.value.selectedGuide)
 
         val testGuide = FarmingGuide(
@@ -51,21 +58,29 @@ class GuidanceViewModelTest {
         )
 
         viewModel.selectGuide(testGuide)
+        runCurrent()
         assertEquals(testGuide, viewModel.uiState.value.selectedGuide)
 
         viewModel.selectGuide(null)
+        runCurrent()
         assertNull(viewModel.uiState.value.selectedGuide)
     }
 
     @Test
-    fun onCategorySelected_updatesCategory() {
+    fun onCategorySelected_updatesCategory() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+        runCurrent()
         viewModel.onCategorySelected("Soil Health")
+        runCurrent()
         assertEquals("Soil Health", viewModel.uiState.value.selectedCategory)
     }
 
     @Test
-    fun onSearchQueryChanged_updatesSearchQuery() {
+    fun onSearchQueryChanged_updatesSearchQuery() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+        runCurrent()
         viewModel.onSearchQueryChanged("compost")
+        runCurrent()
         assertEquals("compost", viewModel.uiState.value.searchQuery)
     }
 

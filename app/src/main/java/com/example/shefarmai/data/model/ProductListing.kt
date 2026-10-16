@@ -8,8 +8,8 @@ data class ProductListing(
     val unit: String,
     val availableQuantity: Double,
     val location: String,
-    val contactContactInfo: String,
+    val contactInfo: String,
     val description: String,
     val datePostedInMillis: Long = System.currentTimeMillis(),
-    val status: String = "AVAILABLE" // AVAILABLE, RESERVED, SOLD
+    val status: ProductStatus = ProductStatus.AVAILABLE
 )

@@ -1,111 +1,68 @@
 package com.example.shefarmai
 
-import com.example.shefarmai.data.model.ProductListing
-import com.example.shefarmai.data.repository.MarketplaceRepository
+import com.example.shefarmai.data.model.ProductStatus
 import com.example.shefarmai.ui.screens.marketplace.MarketplaceViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
-import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Before
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.*
+import org.junit.Assert.*
+import org.junit.Rule
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MarketplaceViewModelTest {
+    @get:Rule val main = MainDispatcherRule()
 
-    private val testDispatcher = StandardTestDispatcher()
-    private lateinit var mockRepository: FakeMarketplaceRepository
-    private lateinit var viewModel: MarketplaceViewModel
-
-    @Before
-    fun setUp() {
-        Dispatchers.setMain(testDispatcher)
-        mockRepository = FakeMarketplaceRepository()
-        viewModel = MarketplaceViewModel(mockRepository)
+    @Test fun editPreservesDateAndStatusUnlessChanged() = runTest {
+        val repo = FakeMarketplaceRepository().apply { listings.value = listOf(sampleListing(status = ProductStatus.RESERVED)) }
+        val vm = MarketplaceViewModel(repo)
+        assertTrue(vm.saveListing(1, "Edited", "Grains", 200.0, "kg", 10.0, "Eldoret", "0700", ""))
+        runCurrent()
+        assertEquals(1000L, repo.listings.value.single().datePostedInMillis)
+        assertEquals(ProductStatus.RESERVED, repo.listings.value.single().status)
+        vm.saveListing(1, "Edited", "Grains", 200.0, "kg", 10.0, "Eldoret", "0700", "", status = ProductStatus.SOLD)
+        runCurrent()
+        assertEquals(ProductStatus.SOLD, repo.listings.value.single().status)
     }
 
-    @After
-    fun tearDown() {
-        Dispatchers.resetMain()
+    @Test fun createSearchCategoryAndDelete() = runTest {
+        val repo = FakeMarketplaceRepository()
+        val vm = MarketplaceViewModel(repo)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect() }
+        vm.saveListing(title = "Maize", category = "Grains", pricePerUnit = 100.0, unit = "kg", quantity = 5.0, location = "Eldoret", contact = "0700", description = "")
+        runCurrent()
+        assertEquals(1, vm.uiState.value.listings.size)
+        vm.onSearchQueryChanged("missing")
+        runCurrent()
+        assertTrue(vm.uiState.value.listings.isEmpty())
+        vm.onSearchQueryChanged("Eldoret")
+        vm.onCategorySelected("Vegetables")
+        runCurrent()
+        assertTrue(vm.uiState.value.listings.isEmpty())
+        vm.onCategorySelected("Grains")
+        runCurrent()
+        assertEquals(1, vm.uiState.value.listings.size)
+        vm.deleteListing(repo.listings.value.single())
+        runCurrent()
+        assertTrue(repo.listings.value.isEmpty())
+        assertEquals(0, repo.seedCalls)
     }
 
-    @Test
-    fun saveListing_withValidData_returnsTrueAndSaves() {
-        val success = viewModel.saveListing(
-            id = 0,
-            title = "Fresh Organic Cassava",
-            category = "Tubers",
-            pricePerUnit = 40.0,
-            unit = "kg",
-            quantity = 100.0,
-            location = "Machakos",
-            contact = "+254 700 000 000",
-            description = "Clean cassava"
-        )
-
-        assertTrue(success)
-    }
-
-    @Test
-    fun saveListing_withInvalidPriceOrTitle_returnsFalse() {
-        val emptyTitleSuccess = viewModel.saveListing(
-            id = 0,
-            title = "",
-            category = "Tubers",
-            pricePerUnit = 40.0,
-            unit = "kg",
-            quantity = 100.0,
-            location = "Machakos",
-            contact = "+254 700 000 000",
-            description = ""
-        )
-        assertFalse(emptyTitleSuccess)
-
-        val negativePriceSuccess = viewModel.saveListing(
-            id = 0,
-            title = "Cassava",
-            category = "Tubers",
-            pricePerUnit = -10.0,
-            unit = "kg",
-            quantity = 100.0,
-            location = "Machakos",
-            contact = "+254 700 000 000",
-            description = ""
-        )
-        assertFalse(negativePriceSuccess)
-    }
-
-    private class FakeMarketplaceRepository : MarketplaceRepository {
-        private val listings = MutableStateFlow<List<ProductListing>>(emptyList())
-
-        override fun getAllListings(): Flow<List<ProductListing>> = listings
-
-        override suspend fun getListingById(id: Long): ProductListing? = listings.value.find { it.id == id }
-
-        override suspend fun addListing(listing: ProductListing): Long {
-            val newList = listings.value.toMutableList()
-            newList.add(listing)
-            listings.value = newList
-            return listing.id
+    @Test fun rejectsInvalidNumbersAndDoesNotCloseOnFailure() = runTest {
+        val repo = FakeMarketplaceRepository()
+        val vm = MarketplaceViewModel(repo)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect() }
+        for (number in listOf(null, 0.0, -1.0, Double.NaN, Double.POSITIVE_INFINITY)) {
+            assertFalse(vm.saveListing(title = "Maize", category = "Grains", pricePerUnit = number, unit = "kg", quantity = 5.0, location = "Eldoret", contact = "0700", description = ""))
+            assertFalse(vm.saveListing(title = "Maize", category = "Grains", pricePerUnit = 100.0, unit = "kg", quantity = number, location = "Eldoret", contact = "0700", description = ""))
         }
-
-        override suspend fun updateListing(listing: ProductListing) {}
-
-        override suspend fun deleteListing(listing: ProductListing) {
-            val newList = listings.value.toMutableList()
-            newList.removeIf { it.id == listing.id }
-            listings.value = newList
-        }
-
-        override suspend fun deleteListingById(id: Long) {}
-
-        override suspend fun seedSampleDataIfEmpty() {}
+        repo.failWrites = true
+        var closed = false
+        vm.saveListing(title = "Maize", category = "Grains", pricePerUnit = 100.0, unit = "kg", quantity = 5.0, location = "Eldoret", contact = "0700", description = "", onSaved = { closed = true })
+        runCurrent()
+        assertFalse(closed)
+        assertFalse(vm.uiState.value.isSaving)
+        assertNotNull(vm.uiState.value.errorMessage)
     }
 }
